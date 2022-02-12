@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/lindell/multi-gitter/internal/scm"
 	"github.com/pkg/errors"
@@ -22,6 +24,7 @@ type Cloner struct {
 
 	Output io.Writer
 
+	DryRun          bool
 	Concurrent      int
 	SkipRepository  []string // A list of repositories that run will skip
 
@@ -52,6 +55,11 @@ func (r *Runner) Clone(ctx context.Context) error {
 	}()
 
 	log.Infof("Running on %d repositories", len(repos))
+
+	if r.DryRun {
+		log.Info("Skipping cloning repos because of dry run")
+		return nil
+	}
 
 	runInParallel(func(i int) {
 		logger := log.WithField("repo", repos[i].FullName())
@@ -92,13 +100,11 @@ func (r *Runner) cloneSingleRepo(ctx context.Context, repo scm.Repository) (erro
 
 	log := log.WithField("repo", repo.FullName())
 	log.Info("Cloning and running script")
+	
+	directoryName, err := getCloneDirectory(ctx, repo.CloneURL())
+	os.Mkdir(fmt.Sprintf("%s/multi-gitter/%s", os.TempDir(), directoryName), 100)
 
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "multi-git-changer-")
-	if err != nil {
-		return err
-	}
-
-	sourceController := r.CreateGit(tmpDir)
+	sourceController := r.CreateGit(directoryName)
 
 	err = sourceController.Clone(repo.CloneURL(), repo.DefaultBranch())
 	if err != nil {
@@ -106,4 +112,15 @@ func (r *Runner) cloneSingleRepo(ctx context.Context, repo scm.Repository) (erro
 	}
 
 	return nil
+}
+
+// TODO: write tests for this function
+func getCloneDirectory(ctx context.Context, repoUrl string) (string, error) {
+	url, err := url.Parse(repoUrl)
+	urlPath := url.Path
+
+	gitRepoName := filepath.Base(urlPath)
+	dir := strings.ReplaceAll(urlPath, gitRepoName, "")
+
+	return dir, err
 }

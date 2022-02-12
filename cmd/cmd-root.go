@@ -23,6 +23,7 @@ func RootCmd() *cobra.Command {
 	cmd.AddCommand(CloseCmd())
 	cmd.AddCommand(PrintCmd())
 	cmd.AddCommand(VersionCmd())
+	cmd.AddCommand(CloneCmd())
 
 	return cmd
 }

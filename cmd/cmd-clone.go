@@ -29,6 +29,7 @@ func CloneCmd() *cobra.Command {
 		RunE:    clone,
 	}
 
+	cmd.Flags().BoolP("dry-run", "d", false, "Run without pushing changes or creating pull requests.")
 	cmd.Flags().IntP("concurrent", "C", 1, "The maximum number of concurrent runs.")
 	cmd.Flags().StringSliceP("skip-repo", "s", nil, "Skip changes on specified repositories, the name is including the owner of repository in the format \"ownerName/repoName\".")
 	configureGit(cmd)
@@ -44,6 +45,7 @@ func CloneCmd() *cobra.Command {
 func clone(cmd *cobra.Command, args []string) error {
 	flag := cmd.Flags()
 
+	dryRun, _ := flag.GetBool("dry-run")
 	concurrent, _ := flag.GetInt("concurrent")
 	skipRepository, _ := flag.GetStringSlice("skip-repo")
 	strOutput, _ := flag.GetString("output")
@@ -84,6 +86,7 @@ func clone(cmd *cobra.Command, args []string) error {
 
 		VersionController: vc,
 
+		DryRun: dryRun,
 		SkipRepository:   skipRepository,
 		Concurrent: concurrent,
 
