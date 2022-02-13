@@ -101,7 +101,7 @@ func (r *Runner) cloneSingleRepo(ctx context.Context, repo scm.Repository) (erro
 	log := log.WithField("repo", repo.FullName())
 	log.Info("Cloning and running script")
 	
-	directoryName, err := getCloneDirectory(ctx, repo.CloneURL())
+	directoryName, err := getCloneDirectory(repo.CloneURL())
 	os.Mkdir(fmt.Sprintf("%s/multi-gitter/%s", os.TempDir(), directoryName), 100)
 
 	sourceController := r.CreateGit(directoryName)
@@ -114,11 +114,10 @@ func (r *Runner) cloneSingleRepo(ctx context.Context, repo scm.Repository) (erro
 	return nil
 }
 
-// TODO: write tests for this function
-func getCloneDirectory(ctx context.Context, repoUrl string) (string, error) {
+func getCloneDirectory(repoUrl string) (string, error) {
 	url, err := url.Parse(repoUrl)
-	urlPath := url.Path
-
+	urlPath := strings.TrimLeft(url.Path, "/")
+	
 	gitRepoName := filepath.Base(urlPath)
 	dir := strings.ReplaceAll(urlPath, gitRepoName, "")
 
