@@ -8,8 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lindell/multi-gitter/internal/git"
-
 	"github.com/lindell/multi-gitter/internal/multigitter"
 	"github.com/spf13/cobra"
 )
@@ -20,22 +18,23 @@ This command will clone down multiple repositories. The output is the base clone
 The environment variable REPOSITORY will be set to the name of the repository currently being executed by the script.
 `
 
-// RunCmd is the main command that runs a script for multiple repositories and creates PRs with the changes made
+// CloneCmd clones multiple repositories
 func CloneCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "run [script path]",
-		Short:   "Clones multiple repositories, run a script in that directory, and creates a PR with those changes.",
-		Long:    runHelp,
-		Args:    cobra.ExactArgs(1),
+		Use:     "clone",
+		Short:   "Clones multiple repositories",
+		Long:    cloneHelp,
+		Args:    cobra.ExactArgs(0),
 		PreRunE: logFlagInit,
-		RunE:    run,
+		RunE:    clone,
 	}
 
+	cmd.Flags().BoolP("dry-run", "d", false, "Run without pushing changes or creating pull requests.")
 	cmd.Flags().IntP("concurrent", "C", 1, "The maximum number of concurrent runs.")
 	cmd.Flags().StringSliceP("skip-repo", "s", nil, "Skip changes on specified repositories, the name is including the owner of repository in the format \"ownerName/repoName\".")
 	configureGit(cmd)
 	configurePlatform(cmd)
-	configureRunPlatform(cmd, true)
+	configureRunPlatform(cmd, false)
 	configureLogging(cmd, "-")
 	configureConfig(cmd)
 	cmd.Flags().AddFlagSet(outputFlag())
@@ -46,6 +45,7 @@ func CloneCmd() *cobra.Command {
 func clone(cmd *cobra.Command, args []string) error {
 	flag := cmd.Flags()
 
+	dryRun, _ := flag.GetBool("dry-run")
 	concurrent, _ := flag.GetInt("concurrent")
 	skipRepository, _ := flag.GetStringSlice("skip-repo")
 	strOutput, _ := flag.GetString("output")
@@ -69,11 +69,6 @@ func clone(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	executablePath, arguments, err := parseCommand(flag.Arg(0))
-	if err != nil {
-		return err
-	}
-
 	// Set up signal listening to cancel the context and let started runs finish gracefully
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
@@ -87,13 +82,11 @@ func clone(cmd *cobra.Command, args []string) error {
 	}()
 
 	runner := &multigitter.Runner{
-		ScriptPath:    executablePath,
-		Arguments:     arguments,
-
 		Output: output,
 
 		VersionController: vc,
 
+		DryRun: dryRun,
 		SkipRepository:   skipRepository,
 		Concurrent: concurrent,
 
