@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/lindell/multi-gitter/internal/scm"
 	"github.com/pkg/errors"
+	"github.com/whilp/git-urls"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/lindell/multi-gitter/internal/multigitter/repocounter"
@@ -99,11 +98,11 @@ func (r *Runner) cloneSingleRepo(ctx context.Context, repo scm.Repository) (erro
 	}
 
 	log := log.WithField("repo", repo.FullName())
-	log.Info("Cloning and running script")
-	
-	directoryName, err := getCloneDirectory(repo.CloneURL())
-	os.Mkdir(fmt.Sprintf("%s/multi-gitter/%s", os.TempDir(), directoryName), 100)
+	log.Info("Cloning repo")
 
+	directoryName, err := getCloneDirectory(repo.CloneURL())
+	directoryString := fmt.Sprintf("%s/multi-gitter/%s", os.TempDir(), directoryName)
+	err = os.Mkdir(directoryString, 100)
 	sourceController := r.CreateGit(directoryName)
 
 	err = sourceController.Clone(repo.CloneURL(), repo.DefaultBranch())
@@ -115,11 +114,11 @@ func (r *Runner) cloneSingleRepo(ctx context.Context, repo scm.Repository) (erro
 }
 
 func getCloneDirectory(repoUrl string) (string, error) {
-	url, err := url.Parse(repoUrl)
-	urlPath := strings.TrimLeft(url.Path, "/")
-	
-	gitRepoName := filepath.Base(urlPath)
-	dir := strings.ReplaceAll(urlPath, gitRepoName, "")
+	url, err := giturls.Parse(repoUrl)
+	urlPath := url.Path
+
+	urlPath = strings.TrimLeft(url.Path, "/")
+	dir := strings.ReplaceAll(urlPath, ".git", "")
 
 	return dir, err
 }
